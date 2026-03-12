@@ -30,7 +30,7 @@ For more information about `cco`'s security model, limitations, and threat analy
 
 ### Installation
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nikvdp/cco/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ragibcs/cco/master/install.sh | bash
 ```
 
 ### Usage
@@ -148,12 +148,12 @@ Here's why cco is the better choice for developers who want simplicity and seaml
 
 ### One-liner install
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nikvdp/cco/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ragibcs/cco/master/install.sh | bash
 ```
 
 ### Manual setup
 ```bash
-git clone https://github.com/nikvdp/cco.git
+git clone https://github.com/ragibcs/cco.git
 cd cco
 chmod +x cco
 sudo ln -s "$PWD/cco" /usr/local/bin/cco
@@ -368,7 +368,7 @@ cco --packages your-mcp-server-package "help me code"
 **For custom installation, modify the Dockerfile:**
 ```bash
 # Clone or fork the cco repository
-git clone https://github.com/nikvdp/cco.git
+git clone https://github.com/ragibcs/cco.git
 cd cco
 
 # Edit the Dockerfile to add your MCP server installations
@@ -403,7 +403,7 @@ cco
 - **Sandbox backend**: ONE of the following:
   - **macOS**: sandbox-exec (built-in) OR Docker
   - **Linux**: bubblewrap (bwrap) OR Docker
-- **Claude Code**: Must be authenticated (run `claude` and login)
+- **Claude Code**: Login is optional at startup; authenticate later if the selected tool/command requires it
 - **Bash**: For the wrapper
 
 ### Authentication

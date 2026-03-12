@@ -336,54 +336,8 @@ find_claude_config_dir() {
 	echo "$primary_dir"
 }
 
-# Check if Claude authentication is needed based on the command being run
-needs_claude_authentication() {
-	# If we're running a custom command (not Claude), skip Claude authentication
-	if [[ -n "$command_flag" || -n "$CCO_COMMAND" ]]; then
-		return 1 # Don't need Claude auth
-	fi
-
-	# If we're in shell mode, we don't need Claude authentication
-	if [[ "$shell_mode" = true ]]; then
-		return 1 # Don't need Claude auth
-	fi
-
-	# Otherwise we need Claude authentication
-	return 0 # Need Claude auth
-}
-
-# Verify Claude Code authentication is available
-verify_claude_authentication() {
-	log "Verifying Claude Code authentication..."
-
-	local claude_config_dir
-	claude_config_dir=$(find_claude_config_dir)
-
-	# Check if config directory exists
-	if [[ ! -d "$claude_config_dir" ]]; then
-		error "No Claude Code configuration found at $claude_config_dir"
-		error "Please run \`claude\` and login to authenticate, then try again."
-		exit 1
-	fi
-
-	# Verify credentials exist (simple check, no staging)
-	if command -v security &>/dev/null; then
-		if ! security find-generic-password -s "Claude Code-credentials" -a "$USER" -w >/dev/null 2>&1; then
-			error "No Claude Code credentials found in macOS Keychain"
-			error "Please run \`claude\` and login to authenticate, then try again."
-			exit 1
-		fi
-		log "Verified Claude Code credentials in macOS Keychain"
-	elif [[ -f "$claude_config_dir/.credentials.json" ]]; then
-		log "Verified Claude Code credentials file exists"
-	else
-		error "No Claude Code credentials found!"
-		error "Please run \`claude\` and login to authenticate, then try again."
-		exit 1
-	fi
-
-	log "Claude Code authentication verified"
-}
+# Claude authentication is optional. cco may be used with external API keys or
+# alternative commands, so startup must not require local Claude credentials.
 
 # Sync updated credentials back to host system
 sync_credentials_back() {
@@ -511,9 +465,9 @@ get_prebuilt_image_tag() {
 	if [[ -d "$CCO_INSTALLATION_DIR/.git" ]]; then
 		local commit_sha
 		commit_sha=$(cd "$CCO_INSTALLATION_DIR" && git rev-parse --short HEAD 2>/dev/null)
-		echo "ghcr.io/nikvdp/cco:${commit_sha}"
+		echo "ghcr.io/ragibcs/cco:${commit_sha}"
 	else
-		echo "ghcr.io/nikvdp/cco:latest"
+		echo "ghcr.io/ragibcs/cco:latest"
 	fi
 }
 
@@ -553,7 +507,7 @@ build_image() {
 	# Build from the directory containing the cco script
 	cd "$CCO_INSTALLATION_DIR" || {
 		error "cco installation not found at $CCO_INSTALLATION_DIR"
-		error "Run: curl -fsSL https://raw.githubusercontent.com/nikvdp/cco/master/install.sh | bash"
+		error "Run: curl -fsSL https://raw.githubusercontent.com/ragibcs/cco/master/install.sh | bash"
 		exit 1
 	}
 
@@ -602,7 +556,7 @@ build_image() {
 update_cco() {
 	if [[ ! -d "$CCO_INSTALLATION_DIR/.git" ]]; then
 		error "cco installation not found at $CCO_INSTALLATION_DIR"
-		error "Run: curl -fsSL https://raw.githubusercontent.com/nikvdp/cco/master/install.sh | bash"
+		error "Run: curl -fsSL https://raw.githubusercontent.com/ragibcs/cco/master/install.sh | bash"
 		exit 1
 	fi
 
@@ -707,36 +661,34 @@ show_info() {
 	fi
 	echo
 
-	# Claude Code authentication status
+	# Claude Code status (informational only)
 	echo "🤖 Claude Code Status:"
 	if command -v claude &>/dev/null; then
 		local claude_version
 		claude_version=$(claude --version 2>/dev/null | head -1 || echo "unknown")
 		echo "  Claude CLI: ✓ Available ($claude_version)"
 
-		# Check authentication
 		local claude_config_dir
 		claude_config_dir=$(find_claude_config_dir)
 		if [[ -d "$claude_config_dir" ]]; then
 			echo "  Config Directory: ✓ Found ($claude_config_dir)"
 
-			# Check credentials
-			local auth_status="✗ Not authenticated"
+			local auth_status="Optional / not configured"
 			if command -v security &>/dev/null; then
 				if security find-generic-password -s "Claude Code-credentials" -a "$USER" -w >/dev/null 2>&1; then
-					auth_status="✓ Authenticated (Keychain)"
+					auth_status="Configured (Keychain)"
 				fi
 			elif [[ -f "$claude_config_dir/.credentials.json" ]]; then
-				auth_status="✓ Authenticated (File)"
+				auth_status="Configured (File)"
 			fi
 			echo "  Authentication: $auth_status"
 		else
-			echo "  Config Directory: ✗ Not found"
-			echo "  Authentication: ✗ Not configured"
+			echo "  Config Directory: Optional / not found"
+			echo "  Authentication: Optional / not configured"
 		fi
 	else
-		echo "  Claude CLI: ✗ Not installed"
-		echo "  Authentication: ✗ Cannot check"
+		echo "  Claude CLI: Optional / not installed"
+		echo "  Authentication: Optional / unavailable"
 	fi
 	echo
 
@@ -761,30 +713,6 @@ show_info() {
 		issues+=("Docker daemon not running")
 	fi
 
-	if ! command -v claude &>/dev/null; then
-		ready=false
-		issues+=("Claude Code not installed")
-	else
-		local claude_config_dir
-		claude_config_dir=$(find_claude_config_dir)
-		if [[ ! -d "$claude_config_dir" ]]; then
-			ready=false
-			issues+=("Claude Code not configured")
-		else
-			local auth_ok=false
-			if command -v security &>/dev/null; then
-				if security find-generic-password -s "Claude Code-credentials" -a "$USER" -w >/dev/null 2>&1; then
-					auth_ok=true
-				fi
-			elif [[ -f "$claude_config_dir/.credentials.json" ]]; then
-				auth_ok=true
-			fi
-			if [[ "$auth_ok" = false ]]; then
-				ready=false
-				issues+=("Claude Code not authenticated")
-			fi
-		fi
-	fi
 
 	if [[ "$ready" = true ]]; then
 		echo "  Status: ✓ Ready to use cco"
@@ -1352,8 +1280,9 @@ run_container() {
 	log "Mounting ~/.claude directory: $HOME/.claude → $container_home/.claude"
 	add_mount_arg "$HOME/.claude" "$container_home/.claude"
 
-	# If the detected config directory is different from ~/.claude, mount it too
-	if [[ "$host_system_claude_dir" != "$HOME/.claude" ]]; then
+	# If the detected config directory is different from ~/.claude, mount it too.
+	# When Claude has never been run, this directory may not exist yet.
+	if [[ "$host_system_claude_dir" != "$HOME/.claude" ]] && [[ -d "$host_system_claude_dir" ]]; then
 		log "Also mounting config directory: $host_system_claude_dir → $container_home/.config/claude"
 		# Create the parent directory in the mount command
 		add_mount_arg "$host_system_claude_dir" "$container_home/.config/claude"
@@ -2004,7 +1933,7 @@ if [[ $# -gt 0 ]]; then
 		echo "Requirements:"
 		echo "  - macOS: sandbox-exec (built-in) or Docker"
 		echo "  - Linux: bubblewrap (bwrap) or Docker"
-		echo "  - Claude Code authenticated (run 'claude' to login)"
+		echo "  - Claude Code login optional at startup; authenticate when needed"
 		echo ""
 		echo "See README for detailed examples and sandbox args file format."
 		exit 0
@@ -2037,10 +1966,7 @@ main() {
 		fi
 	fi
 
-	# Only verify Claude authentication if we need it
-	if needs_claude_authentication; then
-		verify_claude_authentication
-	fi
+	# Claude authentication is intentionally not validated at startup.
 
 	# Only handle Docker image operations if using Docker backend
 	if [[ "$SANDBOX_BACKEND" == "docker" ]]; then

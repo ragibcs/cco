@@ -26,7 +26,7 @@ info() {
 }
 
 # Configuration
-GITHUB_REPO="nikvdp/cco"
+GITHUB_REPO="ragibcs/cco"
 GITHUB_SSH_URL="git@github.com:${GITHUB_REPO}.git"
 GITHUB_HTTPS_URL="https://github.com/${GITHUB_REPO}.git"
 CCO_INSTALLATION_DIR="$HOME/.local/share/cco"
@@ -270,8 +270,8 @@ show_usage() {
 	info "  • Version: ${BLUE}$CURRENT_VERSION${NC}"
 	info ""
 	info "📋 Next steps:"
-	info "  1. Make sure Claude Code is authenticated"
-	info "  2. Run cco in any project directory: ${BLUE}cco${NC}"
+	info "  1. Run cco in any project directory: ${BLUE}cco${NC}"
+	info "  2. Authenticate in Claude later if/when needed"
 	info "  3. For help: ${BLUE}cco --help${NC}"
 	info "  4. To update: ${BLUE}cco self-update${NC}"
 	info ""
@@ -297,7 +297,7 @@ case "${1:-}" in
 --help | -h)
 	echo "cco installer - a thin protective layer for Claude Code"
 	echo ""
-	echo "Usage: curl -fsSL https://raw.githubusercontent.com/nikvdp/cco/master/install.sh | bash"
+	echo "Usage: curl -fsSL https://raw.githubusercontent.com/ragibcs/cco/master/install.sh | bash"
 	echo ""
 	echo "This script will:"
 	echo "  • Clone cco to ~/.local/share/cco"
